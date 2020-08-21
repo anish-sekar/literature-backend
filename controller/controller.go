@@ -55,13 +55,12 @@ func (games *Games) CreateGame(ctx *gin.Context){
 		}
 	}
 	deck= utils.Shuffle(deck)
-	
+
 	match.P1.Cards=deck[0:7]
 	match.P2.Cards=deck[8:15]
 	match.P3.Cards=deck[16:23]
 	match.P4.Cards=deck[24:31]
 	match.P5.Cards=deck[32:39]
 	match.P6.Cards=deck[40:47]
-
 
 }
