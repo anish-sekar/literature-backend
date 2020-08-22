@@ -9,24 +9,7 @@ import (
 // Controller example
 type World struct {
 
-Games map[string]*Match
-
-}
-
-type Match struct{
-
-CurrentTurn int
-Players []*Player 
-Team1 []int 
-Team2 []int
-
-}
-
-type Player struct {
-	
-	UserName string `json:"username"`
-	Cards []string `json:"cards"`
-	SocketConnection *websocket.Conn
+Games map[string]*models.Match
 
 }
 
@@ -37,7 +20,51 @@ func NewController() *World {
 
 func (world *World) StartGame(ctx *gin.Context){ 
 
-	
+		//Bind request body to i
+		var i models.StartGamePayload
+		ctx.BindJSON(&i)
+		
+		//Shuffle the players
+		world.Games[i.GameCode].Players = utils.ShufflePlayers(world.Games[i.GameCode].Players)
+		//Assign to Team1 or Team2
+		for indx,value := range world.Games[i.GameCode].Players{
+
+			if indx % 2 == 0{
+				world.Games[i.GameCode].Team1 = append(world.Games[i.GameCode].Team1,indx)
+			}else{
+				world.Games[i.GameCode].Team1 = append(world.Games[i.GameCode].Team2,indx)
+			}
+
+		}
+		// //Generating the cards for the game
+		suits :=[...]string{"S", "D", "C", "H"}
+		values :=[...]string{"A", "2", "3", "4", "5", "6", "7", "9", "10", "J", "Q", "K"}
+
+		var deck [] string
+
+		for _, suit := range suits {
+			for _, value := range values {
+				deck = append(deck, (suit+value))
+			}
+		}
+		deck= utils.ShuffleCards(deck)
+
+		playerCount := len(world.Games[i.GameCode].Players)
+
+		ite := 0
+		for _,value := range deck{
+			if ite > (playerCount-1) {ite=0}
+			world.Games[i.GameCode].Players[ite] = append(world.Games[i.GameCode].Players[ite],value)
+			ite++
+		}
+		// match.P1.Cards=deck[0:7]
+		// match.P2.Cards=deck[8:15]
+		// match.P3.Cards=deck[16:23]
+		// match.P4.Cards=deck[24:31]
+		// match.P5.Cards=deck[32:39]
+		// match.P6.Cards=deck[40:47]
+
+
 
 	}
 
@@ -65,27 +92,6 @@ func (world *World) CreateGame(ctx *gin.Context){
 		"game_code":game_code,
 		"details":world.Games[game_code],
 	})
-
-	
-	// //Generating the cards for the game
-	// suits :=[...]string{"S", "D", "C", "H"}
-	// values :=[...]string{"A", "2", "3", "4", "5", "6", "7", "9", "10", "J", "Q", "K"}
-
-	// var deck [] string
-
-	// for _, suit := range suits {
-	// 	for _, value := range values {
-	// 		deck = append(deck, (suit+value))
-	// 	}
-	// }
-	// deck= utils.Shuffle(deck)
-
-	// match.P1.Cards=deck[0:7]
-	// match.P2.Cards=deck[8:15]
-	// match.P3.Cards=deck[16:23]
-	// match.P4.Cards=deck[24:31]
-	// match.P5.Cards=deck[32:39]
-	// match.P6.Cards=deck[40:47]
 
 }
 

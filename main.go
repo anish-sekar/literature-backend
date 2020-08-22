@@ -19,7 +19,7 @@ func main() {
 
 	r.GET("/create", w.CreateGame)
 	r.GET("/games",w.GetGames)
-	r.POST("start".w.StartGame)
+	r.POST("start",w.StartGame)
 	r.PUT("/join",w.JoinGame)
 
 	r.Run(":5000") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
