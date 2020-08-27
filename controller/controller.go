@@ -72,12 +72,11 @@ func (world *World) StartGame(ctx *gin.Context){
 
 		ptr := 0
 		for key,_ := range world.Games[i.GameCode].Players{
-
-			world.Games[i.GameCode].Players[key].Cards = deck[ptr:ptr+(deckLength/playerCount)]
-			playerCount = playerCount -1
+			world.Games[i.GameCode].Players[key].Cards = make([]string,48)
+			world.Games[i.GameCode].Players[key].Cards = deck[ptr:(ptr+(deckLength/playerCount))-1]
 			ptr = ptr + (deckLength/playerCount) 
 			deckLength = deckLength - (deckLength/playerCount)
-			
+			playerCount = playerCount -1
 		}
 		// match.P1.Cards=deck[0:7]
 		// match.P2.Cards=deck[8:15]
@@ -195,12 +194,12 @@ func (world *World) JoinGame(ctx *gin.Context){
 
 								for player,value := range world.Games[gameCode].Players{
 							
-									var abstracted_players map[string]*models.AbstractedPlayer
+									abstracted_players := make(map[string]*models.AbstractedPlayer)
 									var players_cards []string
 									
 									for key,v := range world.Games[gameCode].Players{
 										if player != key{
-											abstracted_players[key].Cards = len(v.Cards)
+											abstracted_players[key] = &models.AbstractedPlayer{Cards : len(v.Cards)} 
 										}	else{
 											players_cards = value.Cards
 										}
