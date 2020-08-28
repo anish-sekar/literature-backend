@@ -20,7 +20,7 @@ type StartGamePayload struct{
 type Match struct{
 
 	HasStarted bool
-	CurrentTurn int
+	CurrentTurn string
 	Players map[string]*Player 
 	Team1 []string 
 	Team2 []string
@@ -42,12 +42,21 @@ type AbstractedPlayer struct {
 
 
 type UserState struct{
-
+	MessageCode int `json:"messageCode"`
+	MessageType string `json:"messageType"`
 	HasStarted bool `json:"hasStarted"`
-	CurrentTurn int `json:"curretnTurn"`
+	CurrentTurn string `json:"currentTurn"`
 	Players map[string]*AbstractedPlayer `json:"players"`
 	YourCards []string `json:"yourCards"`
 	Team1 []string `json:"team1"`
 	Team2 []string `json:"team2"`
+	Broadcast string
 
+}
+
+type QueryFailureResponse struct {
+	MessageCode int `json:"messageCode"`
+	MessageType string `json:"messageType"`
+	CurrentTurn string `json:"currentTurn"`
+	Broadcast string `json:"broadcast"`
 }

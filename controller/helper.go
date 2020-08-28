@@ -46,10 +46,10 @@ func publish(world *World, targetUser string, gameCode string,gameState *models.
 
 }
 
-func publishMiss(world *World, targetUser string, gameCode string,message string) bool{ 
+func publishMiss(world *World, targetUser string, gameCode string, queryFailResponse *models.QueryFailureResponse) bool{ 
 
 			
-	err := world.Games[gameCode].Players[targetUser].SocketConnection.WriteJSON(message);
+	err := world.Games[gameCode].Players[targetUser].SocketConnection.WriteJSON(queryFailResponse);
 	if err != nil{
 		log.Println("Error publishing to player",targetUser,"| reason:",err )
 		return false
@@ -60,17 +60,18 @@ func publishMiss(world *World, targetUser string, gameCode string,message string
 }
 
 
-
-
-func performQuery(world *World,gameCode string,target string, query string) bool{
+func performQuery(world *World,gameCode string,source string,target string, query string) bool{
 
 	//Check if the target has the card
 	for indx,card := range world.Games[gameCode].Players[target].Cards{
 		if query==card{
 			world.Games[gameCode].Players[target].Cards = remove(world.Games[gameCode].Players[target].Cards,indx)
-		return true
+			world.Games[gameCode].Players[source].Cards = append(world.Games[gameCode].Players[source].Cards, card)
+			world.Games[gameCode].CurrentTurn = source
+			return true
 		}
 	}
+	world.Games[gameCode].CurrentTurn = target
 	return false
 }
 

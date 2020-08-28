@@ -39,6 +39,8 @@ func (world *World) StartGame(ctx *gin.Context){
 		//Set the game state as started
 		world.Games[i.GameCode].HasStarted = true 
 
+		//Check if theere are minimum number of players
+		
 		//Shuffle the players
 		players := make([]string, 0, len(world.Games[i.GameCode].Players))
 		for k := range world.Games[i.GameCode].Players {
@@ -55,6 +57,8 @@ func (world *World) StartGame(ctx *gin.Context){
 			}
 
 		}
+		world.Games[i.GameCode].CurrentTurn=world.Games[i.GameCode].Team1[0]
+
 		// //Generating the cards for the game
 		suits :=[...]string{"S", "D", "C", "H"}
 		values :=[...]string{"A", "2", "3", "4", "5", "6", "7", "9", "10", "J", "Q", "K"}
@@ -184,11 +188,21 @@ func (world *World) JoinGame(ctx *gin.Context){
 
 						target := input["target"].(string)
 						query  := input["query"].(string)
+
+						//Check if their move was valid
+						if username != world.Games[gameCode].CurrentTurn {
+
+							err := world.Games[gameCode].Players[username].SocketConnection.WriteJSON(`{"messageCode":2,"messageType":"notYourTurn"`);
+							if err != nil{
+								log.Println("Error publishing to player",username,"| reason:",err )
+							}
+							break	
+						}
 						
 						//Perform the move
 
 							//Check if the target has the card
-							hit := performQuery(world,gameCode,target,query)
+							hit := performQuery(world,gameCode,username,target,query)
 						
 							if hit {
 
@@ -207,12 +221,15 @@ func (world *World) JoinGame(ctx *gin.Context){
 		
 									//Generate the state for each user
 									userstate := &models.UserState{
+										MessageCode : 0 ,
+										MessageType : "gameState",
 										HasStarted : world.Games[gameCode].HasStarted,
 										CurrentTurn : world.Games[gameCode].CurrentTurn,
 										Players : abstracted_players,
 										YourCards : players_cards,
 										Team1: world.Games[gameCode].Team1,
-										Team2: world.Games[gameCode].Team1,
+										Team2: world.Games[gameCode].Team2,
+										Broadcast: username + " took " + query + " from " + target,
 		
 									}
 									//Pass the user state to the appropriate user
@@ -223,7 +240,12 @@ func (world *World) JoinGame(ctx *gin.Context){
 
 							}else{
 								for player,_ := range world.Games[gameCode].Players{
-								publishMiss(world,player,gameCode,"MISS!")
+									
+									
+								publishMiss(world,player,gameCode, &models.QueryFailureResponse{MessageCode : 1 ,
+									 MessageType : "queryFailureResponse",
+									 CurrentTurn : world.Games[gameCode].CurrentTurn,
+									 Broadcast: target + " does not have "+ query })
 								}
 							}
 
