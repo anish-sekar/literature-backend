@@ -8,7 +8,8 @@ import (
 	"net/http"
 	"log"
 )
-// Controller example
+
+
 type World struct {
 
 Games map[string]*models.Match
@@ -20,8 +21,9 @@ func NewController() *World {
 	return &World{}
 }
 
-func (world *World) StartGame(ctx *gin.Context){ 
 
+
+func (world *World) StartGame(ctx *gin.Context){ 
 
 
 		//Bind request body to i
@@ -82,26 +84,13 @@ func (world *World) StartGame(ctx *gin.Context){
 			deckLength = deckLength - (deckLength/playerCount)
 			playerCount = playerCount -1
 		}
-		// match.P1.Cards=deck[0:7]
-		// match.P2.Cards=deck[8:15]
-		// match.P3.Cards=deck[16:23]
-		// match.P4.Cards=deck[24:31]
-		// match.P5.Cards=deck[32:39]
-		// match.P6.Cards=deck[40:47]
-
-
-
 	}
 
 func (world *World) GetGames(ctx *gin.Context){
-
-
 	ctx.JSON(200, gin.H{
 		"status":  "success",
 		"details":world,
 	})
-
-
 }
 
 
@@ -126,131 +115,143 @@ func (world *World) JoinGame(ctx *gin.Context){
 	var username string
 	var gameCode string
 
-
-	// //Bind request body to i
-	// var i models.JoinGamePayload
-	// ctx.BindJSON(&i)
-
-	// //Check if game has started
-	// if world.Games[i.GameCode].HasStarted != false  {
-	// 	ctx.JSON(200, gin.H{
-	// 		"status":  "failure",
-	// 		"details":"Game has either started or does not exist",
-	// 	})
-	// 	return
-	// }
-
-	// if world.Games[i.GameCode].Players == nil{
-
-	// 	world.Games[i.GameCode].Players = make([]*models.Player,0)
-
-	// }
-	
-	// //Use i to add user to the game
-	// world.Games[i.GameCode].Players  = append(world.Games[i.GameCode].Players,&models.Player{ UserName:i.UserName})
-
-	//Start up a socket connection
-	//var upgrader = websocket.Upgrader{	CheckOrigin: func(r *http.Request) bool {return true}}
 	var upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 	}
+
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 
-	c, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
+	//Request to upgrade the socket connection
+	connectionToClient, err := upgrader.Upgrade(ctx.Writer, ctx.Request, nil)
+	defer connectionToClient.Close()
 	if err != nil {
 		if _, ok := err.(websocket.HandshakeError); !ok {
 			log.Println(err)
+				ctx.JSON(418, gin.H{
+					"status":  "failure",
+					"error":err,
+				})
 		}
 		return
 	}else 
 		{
-			//log.Print(c.RemoteAddr(),": Joined")
-			//Entire game logic to constantly listen to any inputs the players emit
-			
+
+			// Listen for messages from the client 
 			for {
-				if err := c.ReadJSON(&input); err != nil {
+				if err := connectionToClient.ReadJSON(&input); err != nil {
 					if websocket.IsCloseError(err,1000){
-						log.Println(c.RemoteAddr(),"left voluntarily")
+						log.Println(connectionToClient.RemoteAddr(),"left voluntarily")
+						//Notify that #player left the game
+						if username != ""{
+
+							for key,v := range world.Games[gameCode].Players{
+								if username != key{
+									
+									err := v.SocketConnection.WriteJSON(`{"broadcast":"`+username+` left the game"}`);
+									if err != nil{
+										log.Println(username + " left the game| reason:",err )
+									}else{
+									}
+								}	
+							}
+						}
+
 					}
 					break
 				}else{
 					
+					// Switch to handle different client behaviours
 					switch {
-					case input["messageType"].(string) == "connect":
-							//Need to add error handling to check for empty inputs from the client
-							username = input["userName"].(string)
-							gameCode = input["gameCode"].(string)
-							connectUser(world,username,gameCode,c)
-							log.Println("User has connected")
-
-					case input["messageType"].(string) == "move":
-
-						target := input["target"].(string)
-						query  := input["query"].(string)
-
-						//Check if their move was valid
-						if username != world.Games[gameCode].CurrentTurn {
-
-							err := world.Games[gameCode].Players[username].SocketConnection.WriteJSON(`{"messageCode":2,"messageType":"notYourTurn"`);
-							if err != nil{
-								log.Println("Error publishing to player",username,"| reason:",err )
-							}
-							break	
-						}
-						
-						//Perform the move
-
-							//Check if the target has the card
-							hit := performQuery(world,gameCode,username,target,query)
-						
-							if hit {
-
-								for player,value := range world.Games[gameCode].Players{
 							
-									abstracted_players := make(map[string]*models.AbstractedPlayer)
-									var players_cards []string
-									
-									for key,v := range world.Games[gameCode].Players{
-										if player != key{
-											abstracted_players[key] = &models.AbstractedPlayer{Cards : len(v.Cards)} 
-										}	else{
-											players_cards = value.Cards
-										}
-									}
-		
-									//Generate the state for each user
-									userstate := &models.UserState{
-										MessageCode : 0 ,
-										MessageType : "gameState",
-										HasStarted : world.Games[gameCode].HasStarted,
-										CurrentTurn : world.Games[gameCode].CurrentTurn,
-										Players : abstracted_players,
-										YourCards : players_cards,
-										Team1: world.Games[gameCode].Team1,
-										Team2: world.Games[gameCode].Team2,
-										Broadcast: username + " took " + query + " from " + target,
-		
-									}
-									//Pass the user state to the appropriate user
-									publish(world,player,gameCode,userstate)
+						case input["messageType"].(string) == "connect":
+								//Need to add error handling to check for empty inputs from the client
+								username = input["userName"].(string)
+								gameCode = input["gameCode"].(string)
+								joinGameRoom(world,username,gameCode,connectionToClient)
+								log.Println("User has connected")
+
+						case input["messageType"].(string) == "move":
+
+							target := input["target"].(string)
+							query  := input["query"].(string)
+
+							//Check if their move was valid
+							if username != world.Games[gameCode].CurrentTurn {
+
+								err := world.Games[gameCode].Players[username].SocketConnection.WriteJSON(`{"messageCode":2,"messageType":"notYourTurn"}`);
+								if err != nil{
+									log.Println("Error publishing to player",username,"| reason:",err )
 								}
-
-
-
-							}else{
-								for player,_ := range world.Games[gameCode].Players{
-									
-									
-								publishMiss(world,player,gameCode, &models.QueryFailureResponse{MessageCode : 1 ,
-									 MessageType : "queryFailureResponse",
-									 CurrentTurn : world.Games[gameCode].CurrentTurn,
-									 Broadcast: target + " does not have "+ query })
-								}
+								break	
 							}
+							
+							//Perform the move
+
+								//Check if the target has the card
+								hit := performQuery(world,gameCode,username,target,query)
+							
+								if hit {
+
+									for player,value := range world.Games[gameCode].Players{
+								
+										abstracted_players := make(map[string]*models.AbstractedPlayer)
+										var players_cards []string
+										
+										for key,v := range world.Games[gameCode].Players{
+											if player != key{
+												abstracted_players[key] = &models.AbstractedPlayer{Cards : len(v.Cards)} 
+											}	else{
+												players_cards = value.Cards
+											}
+										}
+			
+										//Generate the state for each user
+										userstate := &models.UserState{
+											MessageCode : 0 ,
+											MessageType : "gameState",
+											HasStarted : world.Games[gameCode].HasStarted,
+											CurrentTurn : world.Games[gameCode].CurrentTurn,
+											Players : abstracted_players,
+											YourCards : players_cards,
+											Team1: world.Games[gameCode].Team1,
+											Team2: world.Games[gameCode].Team2,
+											Broadcast: username + " took " + query + " from " + target,
+			
+										}
+										//Pass the user state to the appropriate user
+										publish(world,player,gameCode,userstate)
+									}
 
 
-					default:
+
+								}else{
+									for player,_ := range world.Games[gameCode].Players{
+										
+										
+									publishMiss(world,player,gameCode, &models.QueryFailureResponse{MessageCode : 1 ,
+										MessageType : "queryFailureResponse",
+										CurrentTurn : world.Games[gameCode].CurrentTurn,
+										Broadcast: target + " does not have "+ query })
+									}
+								}
+
+
+						case input["messageType"].(string) == "declare":
+
+							//Check if it's the players turn
+
+						
+						default:
+							unknownMessage := `
+							{	
+								
+								"messageType":"unknown messageType",
+								"description: "The message"input["messageType"]
+							}
+							`
+							connectionToClient.WriteJSON(unknownMessage)
+							
 
 					}
 				}

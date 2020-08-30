@@ -16,7 +16,6 @@ type StartGamePayload struct{
 
 }
 
-
 type Match struct{
 
 	HasStarted bool

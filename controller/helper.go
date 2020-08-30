@@ -7,35 +7,28 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func connectUser(world *World, username string, gameCode string, sock *websocket.Conn) bool{
+func joinGameRoom(world *World, username string, gameCode string, sock *websocket.Conn) bool{
 
-	//Check if game has players & add to list
-	// if val, ok := world.Games[gameCode].Players[username]; ok {
-	// 	//do something here
-	// 	world.Games[gameCode].Players = make(map[string]*utils.Player)
-	// }
+	// When the first player is joining, create the Players map. Refer models.Mat struct
 	if world.Games[gameCode].Players==nil{
 		world.Games[gameCode].Players = make(map[string]*models.Player)
 	}
 
-	//Add user to the game with socket info
+	//Add user to the game 
 	if _, ok := world.Games[gameCode].Players[username]; ok {
+		// Update the socket information
 		log.Println("Someone with the same username is already in the game, updating the socket conn.")
 		world.Games[gameCode].Players[username].SocketConnection = sock
 	}else{
+		//Create new player with socket information
 		world.Games[gameCode].Players[username] = &models.Player{SocketConnection:sock}
 	}
 
-
-		
-
-	
 	return true
 }
 
 func publish(world *World, targetUser string, gameCode string,gameState *models.UserState) bool{ 
 
-			
 		err := world.Games[gameCode].Players[targetUser].SocketConnection.WriteJSON(gameState);
 		if err != nil{
 			log.Println("Error publishing to player",targetUser,"| reason:",err )

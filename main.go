@@ -5,18 +5,17 @@ import (
 	//"github.com/gorilla/websocket"
 	"github.com/anish-sekar/literature-backend/controller"
 	"github.com/anish-sekar/literature-backend/models"
-	"fmt"
+	//"fmt"
 )
 
 func main() {
 
+	// Create the global game object that stores all game/player state
 	w:= controller.NewController()
 	w.Games= make(map[string]*models.Match)
 	
 
-	fmt.Print(w)
 	r := gin.Default()
-
 
 	r.GET("/create", w.CreateGame)
 	r.GET("/games",w.GetGames)
